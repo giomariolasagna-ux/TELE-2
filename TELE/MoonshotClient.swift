@@ -117,30 +117,40 @@ final class MoonshotClient {
         while attempt < 3 {
             do {
                 let (data, resp) = try await urlSession.data(for: req)
-                guard let http = resp as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+                guard let http = resp as? HTTPURLResponse else { throw TeleError.badServerResponse(-1) }
+
                 if (200..<300).contains(http.statusCode) {
                     do {
-                        let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-                        return decoded
+                        return try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
                     } catch {
                         if let body = String(data: data, encoding: .utf8) {
                             print("[MoonshotClient] JSON decode failed, body=\(body.prefix(200))")
                         }
-                        throw error
+                        throw TeleError.decodingFailed
                     }
+                } else if [429, 503].contains(http.statusCode) {
+                    print("[MoonshotClient] 429/503 detected. Attempt \(attempt + 1)/3. Retrying...")
+                    if attempt == 2 { throw TeleError.serviceOverloaded }
+                    let delay = UInt64(pow(2.0, Double(attempt)) * 1_000_000_000) // 1s, 2s, 4s
+                    try await Task.sleep(nanoseconds: delay)
+                    attempt += 1
+                    continue
                 } else {
                     if let body = String(data: data, encoding: .utf8) {
                         print("[MoonshotClient] HTTP \(http.statusCode) body=\(body)")
                     }
-                    throw URLError(.badServerResponse)
+                    throw TeleError.badServerResponse(http.statusCode)
                 }
             } catch {
+                if let te = error as? TeleError, case .serviceOverloaded = te { throw te }
                 lastError = error
                 attempt += 1
-                if attempt >= 3 { break }
-                try? await Task.sleep(nanoseconds: UInt64(600_000_000 * Int(pow(2.0, Double(attempt)))))
+                if attempt < 3 {
+                    let delay = UInt64(pow(2.0, Double(attempt - 1)) * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: delay)
+                }
             }
         }
-        throw lastError ?? URLError(.unknown)
+        throw TeleError.networkError(lastError ?? URLError(.unknown))
     }
 }

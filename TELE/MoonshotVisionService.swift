@@ -44,9 +44,7 @@ final class MoonshotVisionService: MoonshotVisionServiceProtocol {
         
         // Validate JSON
         guard let jsonData = Self.extractFirstJSONObject(from: content) else {
-            throw NSError(domain: "VisionValidation", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Vision ha generato output non-JSON: \(content.prefix(100))"
-            ])
+            throw TeleError.visionAnalysisFailed("Output non-JSON: \(content.prefix(100))")
         }
         
         do {

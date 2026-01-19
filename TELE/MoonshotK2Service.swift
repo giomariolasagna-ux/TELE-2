@@ -43,9 +43,7 @@ final class MoonshotK2Service: MoonshotK2ServiceProtocol {
         
         // K2 Validation Layer: verifica JSON prima di restituire
         guard let jsonData = Self.extractFirstJSONObject(from: content) else {
-            throw NSError(domain: "K2Validation", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "K2 ha generato output non-JSON: \(content.prefix(100))"
-            ])
+            throw TeleError.promptGenerationFailed("Output non-JSON: \(content.prefix(100))")
         }
         
         do {
