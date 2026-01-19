@@ -20,6 +20,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var isSessionRunning = false
     @Published var isConfigured: Bool = false
     @Published var currentZoomFactor: CGFloat = 1.0
+    @Published var videoZoomFactor: Double = 1.0 // Published per UI sync
     @Published var captureError: String?
     
     var maxZoomFactor: CGFloat {
@@ -42,9 +43,6 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var currentISO: Float = 0.0
     @Published var currentExposureDuration: Double = 0.0
     @Published var currentExposureBias: Float = 0.0
-
-    // Convenience accessors used by UI
-    var videoZoomFactor: Double { Double(currentZoomFactor) }
 
     #if canImport(UIKit)
     var lastCapturedUIImage: UIImage? { capturedImage }
@@ -270,11 +268,12 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                     // already ramping; let it finish
                 } else if delta > 0.25, device.responds(to: #selector(AVCaptureDevice.ramp(toVideoZoomFactor:withRate:))) {
                     device.ramp(toVideoZoomFactor: finalZoom, withRate: 8.0)
-                } else if delta > 0.005 {
-                    device.videoZoomFactor = finalZoom
-                }
+                } else if delta > 0.005 { device.videoZoomFactor = finalZoom }
                 device.unlockForConfiguration()
-                DispatchQueue.main.async { self.currentZoomFactor = finalZoom }
+                DispatchQueue.main.async { 
+                    self.currentZoomFactor = finalZoom
+                    self.videoZoomFactor = Double(finalZoom)
+                }
             } catch {
                 print("[Camera] Zoom error: \(error)")
             }
@@ -503,4 +502,3 @@ struct CameraPreview: NSViewRepresentable {
     }
 }
 #endif
-

@@ -1,5 +1,5 @@
 import SwiftUI
-import CoreGraphics // For image size extraction
+import CoreGraphics // For CGPoint math
 
 struct TeleCameraView: View {
     @StateObject private var camera = CameraModel()
@@ -73,26 +73,34 @@ struct TeleCameraView: View {
         isProcessing = true
         camera.capturePhoto()
 
-        // Wait for photo capture asynchronously
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            guard let fullData = camera.lastPhotoData,
-                  let cropData = camera.lastPhotoData else {
-                isProcessing = false
-                return
+            // Polling leggero per attendere lo scatto
+            var data: Data? = nil
+            for _ in 0..<15 {
+                if let d = camera.lastPhotoData { data = d; break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
             }
+            
+            guard let fullData = data else { isProcessing = false; return }
 
-            let fullSize = extractImageSize(from: fullData)
-            let cropSize = extractImageSize(from: cropData)
+            // Calcolo crop deterministico 10x centrato
+            let zoom = CGFloat(camera.currentZoomFactor)
+            let cropResult = try? ImageUtils.cropForZoom(
+                fullData: fullData,
+                zoomFactor: zoom,
+                centerNorm: CGPoint(x: 0.5, y: 0.5)
+            )
+            
+            guard let (cropData, cropRect, fW, fH, cW, cH) = cropResult else {
+                isProcessing = false; return 
+            }
 
             let frame = CapturedFramePair(
                 captureId: UUID().uuidString,
-                zoomFactor: Double(camera.currentZoomFactor),
-                fullWidth: fullSize.width,
-                fullHeight: fullSize.height,
-                cropWidth: cropSize.width,
-                cropHeight: cropSize.height,
-                cropRectNorm: RectNorm(x: 0.3, y: 0.3, w: 0.4, h: 0.4),
+                zoomFactor: Double(zoom),
+                fullWidth: fW, fullHeight: fH,
+                cropWidth: cW, cropHeight: cH,
+                cropRectNorm: RectNorm(x: Double(cropRect.minX), y: Double(cropRect.minY), w: Double(cropRect.width), h: Double(cropRect.height)),
                 metadata: CameraMetadata(
                     iso: Double(camera.currentISO),
                     shutterS: camera.currentExposureDuration,
@@ -115,16 +123,6 @@ struct TeleCameraView: View {
             isProcessing = false
         }
     }
-    
-    private func extractImageSize(from data: Data) -> (width: Int, height: Int) {
-        #if canImport(UIKit)
-        guard let image = UIImage(data: data) else { return (0, 0) }
-        return (Int(image.size.width), Int(image.size.height))
-        #else
-        guard let image = NSImage(data: data) else { return (0, 0) }
-        return (Int(image.size.width), Int(image.size.height))
-        #endif
-    }
 }
 
 // MARK: - Supporting Types
@@ -133,4 +131,3 @@ struct TeleCameraView: View {
 // - RectNorm (now from TeleModels.swift)
 // - DualAnalysisPack (now from TeleModels.swift)
 // - PromptBundle (now from TeleModels.swift)
-

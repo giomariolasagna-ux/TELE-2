@@ -3,14 +3,25 @@ import Foundation
 struct TeleServicesFactory {
     let vision: MoonshotVisionServiceProtocol
     let k2: MoonshotK2ServiceProtocol
+    let openai: OpenAIImagesServiceProtocol
 
     static func make() -> TeleServicesFactory {
-        guard let key = AppSecrets.moonshotApiKey(), !key.isEmpty else {
-            return TeleServicesFactory(vision: MockMoonshotVisionService(), k2: MockMoonshotK2Service())
+        let mKey = AppSecrets.moonshotApiKey() ?? ""
+        let oKey = AppSecrets.openAIApiKey() ?? ""
+
+        if mKey.isEmpty || oKey.isEmpty {
+            return TeleServicesFactory(
+                vision: MockMoonshotVisionService(),
+                k2: MockMoonshotK2Service(),
+                openai: MockOpenAIImagesService()
+            )
         }
-        let client = MoonshotClient(apiKey: key)
-        let vision = MoonshotVisionService(client: client)
-        let k2 = MoonshotK2Service(client: client)
-        return TeleServicesFactory(vision: vision, k2: k2)
+        
+        let mClient = MoonshotClient(apiKey: mKey)
+        return TeleServicesFactory(
+            vision: MoonshotVisionService(client: mClient),
+            k2: MoonshotK2Service(client: mClient),
+            openai: OpenAIImagesClient(apiKey: oKey)
+        )
     }
 }

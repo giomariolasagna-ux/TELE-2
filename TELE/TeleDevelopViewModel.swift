@@ -79,12 +79,14 @@ final class TeleDevelopViewModel: ObservableObject {
                 // Stage 3: OpenAI Enhancement (placeholder per ora)
                 await updateState(.enhancingWithAI(progress: 0.9))
                 let o0 = Date()
-                
-                // TODO: Implementare OpenAI Client vero
-                // let finalData = try await services.openai.generateTelephoto(...)
-                // Per ora usiamo il crop con overlay di debug
-                let finalImage = await self.simulateEnhancement(cropData: cropData, prompt: prompt)
-                
+
+                let finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: cropData)
+                guard let finalImage = PlatformImage(data: finalData) else {
+                    throw NSError(domain: "OpenAI", code: 3, userInfo: [
+                        NSLocalizedDescriptionKey: "Dati immagine OpenAI corrotti"
+                    ])
+                }
+
                 let tOpenAI = Int(Date().timeIntervalSince(o0) * 1000)
                 let total = Int(Date().timeIntervalSince(tStart) * 1000)
                 
@@ -188,4 +190,3 @@ final class TeleDevelopViewModel: ObservableObject {
         return baseCompression - (zoomCompression * 0.15)
     }
 }
-
