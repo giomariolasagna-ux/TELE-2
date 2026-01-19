@@ -215,12 +215,12 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 self.session.addOutput(self.photoOutput)
                 #if os(iOS)
                 self.photoOutput.isPortraitEffectsMatteDeliveryEnabled = false
-                #endif
                 self.photoOutput.isHighResolutionCaptureEnabled = true
                 if self.photoOutput.isStillImageStabilizationSupported { /* enabled per-capture if needed */ }
                 if #available(iOS 13.0, *), self.photoOutput.isAppleProRAWEnabled {
                     // keep off by default; user can enable later if desired
                 }
+                #endif
             }
 
             self.session.commitConfiguration()
@@ -236,9 +236,11 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
 
             if let conn = self.photoOutput.connection(with: .video) {
                 conn.isEnabled = true
+                #if os(iOS)
                 if conn.isVideoStabilizationSupported {
                     conn.preferredVideoStabilizationMode = .auto
                 }
+                #endif
             }
 
             self.startSessionIfNeeded()
@@ -296,6 +298,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             let useHEVC = available.contains(.hevc) && self.captureOptions.preferHEVC
             let settings: AVCapturePhotoSettings = useHEVC ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc]) : (available.contains(.jpeg) ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg]) : AVCapturePhotoSettings())
 
+            #if os(iOS)
             settings.isHighResolutionPhotoEnabled = true
             if self.captureOptions.enableStabilization, self.photoOutput.isStillImageStabilizationSupported {
                 settings.isAutoStillImageStabilizationEnabled = true
@@ -303,6 +306,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             if #available(iOS 11.0, *), useHEVC {
                 settings.embedsDepthDataInPhoto = false
             }
+            #endif
 
             self.photoOutput.capturePhoto(with: settings, delegate: self)
         }
