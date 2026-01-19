@@ -6,7 +6,7 @@ protocol MoonshotK2ServiceProtocol {
 
 final class MoonshotK2Service: MoonshotK2ServiceProtocol {
     private let client: MoonshotClient
-    private let modelName: String = "moonshot-v1-8k"
+    private let modelName: String = "kimi-k2-thinking-turbo"
 
     init(client: MoonshotClient) { self.client = client }
 

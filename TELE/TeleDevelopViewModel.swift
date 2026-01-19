@@ -49,23 +49,48 @@ final class TeleDevelopViewModel: ObservableObject {
                 // Stage 1: Vision Analysis
                 await updateState(.analyzingVision(progress: 0.3))
                 let v0 = Date()
-                let analysis = try await services.vision.analyze(
-                    fullImageData: fullData, 
-                    cropImageData: cropData, 
-                    frame: frame
-                )
+                let analysis: DualAnalysisPack
+                do {
+                    analysis = try await services.vision.analyze(
+                        fullImageData: fullData, 
+                        cropImageData: cropData, 
+                        frame: frame
+                    )
+                } catch {
+                    if isOverload(error) {
+                        print("[TeleDevelopVM] Vision overloaded, using mock fallback")
+                        analysis = try await MockMoonshotVisionService().analyze(
+                            fullImageData: fullData,
+                            cropImageData: cropData,
+                            frame: frame
+                        )
+                    } else { throw error }
+                }
                 let tVision = Int(Date().timeIntervalSince(v0) * 1000)
                 self.analysis = analysis
                 
                 // Stage 2: K2 Prompt Building con validazione
                 await updateState(.buildingPrompt(progress: 0.6))
                 let k0 = Date()
-                let prompt = try await services.k2.compilePrompt(
-                    analysis: analysis, 
-                    cropRect: frame.cropRectNorm, 
-                    zoomFactor: frame.zoomFactor,
-                    userBasePrompt: self.generateBasePrompt()
-                )
+                let prompt: PromptBundle
+                do {
+                    prompt = try await services.k2.compilePrompt(
+                        analysis: analysis, 
+                        cropRect: frame.cropRectNorm, 
+                        zoomFactor: frame.zoomFactor,
+                        userBasePrompt: self.generateBasePrompt()
+                    )
+                } catch {
+                    if isOverload(error) {
+                        print("[TeleDevelopVM] K2 overloaded, using mock fallback")
+                        prompt = try await MockMoonshotK2Service().compilePrompt(
+                            analysis: analysis,
+                            cropRect: frame.cropRectNorm,
+                            zoomFactor: frame.zoomFactor,
+                            userBasePrompt: self.generateBasePrompt()
+                        )
+                    } else { throw error }
+                }
                 let tK2 = Int(Date().timeIntervalSince(k0) * 1000)
                 self.promptBundle = prompt
                 
@@ -80,7 +105,18 @@ final class TeleDevelopViewModel: ObservableObject {
                 await updateState(.enhancingWithAI(progress: 0.9))
                 let o0 = Date()
 
-                let finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: cropData)
+                let finalData: Data
+                do {
+                    finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: cropData)
+                } catch {
+                    if isOverload(error) {
+                        print("[TeleDevelopVM] OpenAI overloaded, using mock fallback")
+                        finalData = try await MockOpenAIImagesService().generateTelephoto(
+                            prompt: prompt,
+                            cropData: cropData
+                        )
+                    } else { throw error }
+                }
                 guard let finalImage = PlatformImage(data: finalData) else {
                     throw NSError(domain: "OpenAI", code: 3, userInfo: [
                         NSLocalizedDescriptionKey: "Dati immagine OpenAI corrotti"
@@ -106,6 +142,20 @@ final class TeleDevelopViewModel: ObservableObject {
         
         currentTask = task
         await task.value
+    }
+    
+    private func isOverload(_ error: Error) -> Bool {
+        if let te = error as? TeleError {
+            switch te {
+            case .serviceOverloaded: return true
+            case .badServerResponse(let code): return code == 429 || code == 503
+            default: return false
+            }
+        }
+        if let urlErr = error as? URLError {
+            return urlErr.code == .cannotLoadFromNetwork
+        }
+        return false
     }
     
     func cancel() {
