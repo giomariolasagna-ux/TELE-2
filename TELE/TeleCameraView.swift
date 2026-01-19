@@ -6,6 +6,7 @@ struct TeleCameraView: View {
     @StateObject private var developVM = TeleDevelopViewModel()
     @State private var showResult = false
     @State private var isProcessing = false
+    @State private var pinchScale: CGFloat = 1.0
     
     var body: some View {
         ZStack {
@@ -14,6 +15,7 @@ struct TeleCameraView: View {
             // Camera Preview
             CameraPreview(camera: camera)
                 .ignoresSafeArea()
+                .simultaneousGesture(zoomGesture)
             
             VStack {
                 Spacer()
@@ -122,6 +124,19 @@ struct TeleCameraView: View {
             }
             isProcessing = false
         }
+    }
+
+    private var zoomGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                let delta = value / pinchScale
+                pinchScale = value
+                let newZoom = camera.currentZoomFactor * delta
+                camera.setZoom(factor: newZoom)
+            }
+            .onEnded { _ in
+                pinchScale = 1.0
+            }
     }
 }
 
