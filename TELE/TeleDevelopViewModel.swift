@@ -45,26 +45,28 @@ final class TeleDevelopViewModel: ObservableObject {
         
         let task = Task {
             let tStart = Date()
+            
+            // Task parallelo per preparare il crop quadrato per OpenAI mentre Moonshot lavora
+            let squareCropTask = Task {
+                try ImageUtils.cropForZoom(
+                    fullData: fullData, 
+                    zoomFactor: frame.zoomFactor, 
+                    centerNorm: CGPoint(x: 0.5, y: 0.5), 
+                    outputMaxDimension: 1024, 
+                    forceSquare: true
+                )
+            }
+
             do {
                 // Stage 1: Vision Analysis
                 await updateState(.analyzingVision(progress: 0.3))
                 let v0 = Date()
                 let analysis: DualAnalysisPack
-                do {
-                    analysis = try await services.vision.analyze(
-                        fullImageData: fullData, 
-                        cropImageData: cropData, 
-                        frame: frame
-                    )
-                } catch {
-                    // Qualsiasi errore su Moonshot Vision -> Fallback a Mock per non bloccare la pipeline
-                    print("[TeleDevelopVM] Moonshot Vision Fallito: \(error). Uso Mock.")
-                    analysis = try await MockMoonshotVisionService().analyze(
-                        fullImageData: fullData,
-                        cropImageData: cropData,
-                        frame: frame
-                    )
-                }
+                analysis = try await services.vision.analyze(
+                    fullImageData: fullData, 
+                    cropImageData: cropData, 
+                    frame: frame
+                )
                 let tVision = Int(Date().timeIntervalSince(v0) * 1000)
                 self.analysis = analysis
                 
@@ -72,41 +74,29 @@ final class TeleDevelopViewModel: ObservableObject {
                 await updateState(.buildingPrompt(progress: 0.6))
                 let k0 = Date()
                 let prompt: PromptBundle
-                do {
-                    prompt = try await services.k2.compilePrompt(
-                        analysis: analysis, 
-                        cropRect: frame.cropRectNorm, 
-                        zoomFactor: frame.zoomFactor,
-                        userBasePrompt: self.generateBasePrompt()
-                    )
-                } catch {
-                    // Qualsiasi errore su Moonshot K2 -> Fallback a Mock
-                    print("[TeleDevelopVM] Moonshot K2 Fallito: \(error). Uso Mock.")
-                    prompt = try await MockMoonshotK2Service().compilePrompt(
-                        analysis: analysis,
-                        cropRect: frame.cropRectNorm,
-                        zoomFactor: frame.zoomFactor,
-                        userBasePrompt: self.generateBasePrompt()
-                    )
-                }
+                prompt = try await services.k2.compilePrompt(
+                    analysis: analysis, 
+                    cropRect: frame.cropRectNorm, 
+                    zoomFactor: frame.zoomFactor,
+                    userBasePrompt: self.generateBasePrompt()
+                )
                 let tK2 = Int(Date().timeIntervalSince(k0) * 1000)
                 self.promptBundle = prompt
                 
-                // Validazione K2: assicura coerenza analisi
-                guard self.validateAnalysisConsistency(analysis: analysis) else {
-                    throw NSError(domain: "K2Validation", code: 1, userInfo: [
-                        NSLocalizedDescriptionKey: "Analisi Vision incompleta: dettagli profondità mancanti"
-                    ])
+                // Validazione K2 non bloccante
+                if !self.validateAnalysisConsistency(analysis: analysis) {
+                    TeleLogger.shared.log("Validazione K2 debole, procedo comunque verso OpenAI.", area: "SYSTEM")
                 }
                 
-                // Stage 3: OpenAI Enhancement (placeholder per ora)
+                // Stage 3: OpenAI Enhancement
                 TeleLogger.shared.log("Stage 3: Calling OpenAI", area: "SYSTEM")
                 await updateState(.enhancingWithAI(progress: 0.9))
                 let o0 = Date()
 
                 let finalData: Data
                 do {
-                    finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: cropData)
+                    let (squareData, _, _, _, _, _) = try await squareCropTask.value
+                    finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: squareData)
                 } catch {
                     if isOverload(error) {
                         print("[TeleDevelopVM] OpenAI overloaded, using mock fallback")
@@ -134,6 +124,7 @@ final class TeleDevelopViewModel: ObservableObject {
                 
             } catch {
                 let errorString = String(describing: error)
+                TeleLogger.shared.log("PIPELINE FATAL ERROR: \(errorString)", area: "SYSTEM")
                 print("[TeleDevelopVM] Pipeline error: \(errorString)")
                 await updateState(.failed(reason: errorString, recoverable: true))
             }

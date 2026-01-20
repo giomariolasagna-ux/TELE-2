@@ -97,7 +97,8 @@ struct TeleCameraView: View {
             let cropResult = try? ImageUtils.cropForZoom(
                 fullData: fullData,
                 zoomFactor: zoom,
-                centerNorm: CGPoint(x: 0.5, y: 0.5)
+                centerNorm: CGPoint(x: 0.5, y: 0.5),
+                forceSquare: false // Preview maintains aspect ratio
             )
             
             guard let (cropData, cropRect, fW, fH, cW, cH) = cropResult else {

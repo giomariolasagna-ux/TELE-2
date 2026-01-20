@@ -17,12 +17,14 @@ enum ImageUtils {
     ///   - centerNorm: Center point in normalized coordinates [0,1]
     ///   - outputMaxDimension: Optional max longer-side dimension for the output to limit payload
     ///   - outputJPEGQuality: JPEG compression quality [0, 1], default 0.9
+    ///   - forceSquare: If true, returns a 1:1 square crop (required for OpenAI)
     /// - Returns: (cropData, cropRectNorm, fullW, fullH, cropW, cropH)
     static func cropForZoom(fullData: Data,
                             zoomFactor: CGFloat,
                             centerNorm: CGPoint,
                             outputMaxDimension: CGFloat = 1600,
-                            outputJPEGQuality: CGFloat = 0.9) throws -> (Data, CGRect, Int, Int, Int, Int) {
+                            outputJPEGQuality: CGFloat = 0.9,
+                            forceSquare: Bool = false) throws -> (Data, CGRect, Int, Int, Int, Int) {
         // Sanitize inputs
         let zIn = zoomFactor.isFinite && zoomFactor >= 1 ? zoomFactor : 1
         let cX = centerNorm.x.isFinite ? centerNorm.x : 0.5
@@ -60,8 +62,15 @@ enum ImageUtils {
         let cropWFloat = CGFloat(fullW) / z
         let cropHFloat = CGFloat(fullH) / z
 
-        let cropW = min(max(cropWFloat, 1), CGFloat(fullW))
-        let cropH = min(max(cropHFloat, 1), CGFloat(fullH))
+        var cropW = min(max(cropWFloat, 1), CGFloat(fullW))
+        var cropH = min(max(cropHFloat, 1), CGFloat(fullH))
+        
+        if forceSquare {
+            let side = min(cropW, cropH)
+            cropW = side
+            cropH = side
+            TeleLogger.shared.log("ForceSquare enabled: side \(Int(side))px", area: "IMAGE")
+        }
 
         // center in pixels
         let cx = cxNorm * CGFloat(fullW)
@@ -112,7 +121,8 @@ enum ImageUtils {
                             zoomFactor: CGFloat,
                             centerNorm: CGPoint,
                             outputMaxDimension: CGFloat = 1600,
-                            outputJPEGQuality: CGFloat = 0.9) throws -> (Data, CGRect, Int, Int, Int, Int) {
+                            outputJPEGQuality: CGFloat = 0.9,
+                            forceSquare: Bool = false) throws -> (Data, CGRect, Int, Int, Int, Int) {
         // Sanitize inputs
         let zIn = zoomFactor.isFinite && zoomFactor >= 1 ? zoomFactor : 1
         let cX = centerNorm.x.isFinite ? centerNorm.x : 0.5
@@ -139,8 +149,15 @@ enum ImageUtils {
         let cropWFloat = CGFloat(fullW) / z
         let cropHFloat = CGFloat(fullH) / z
 
-        let cropW = min(max(cropWFloat, 1), CGFloat(fullW))
-        let cropH = min(max(cropHFloat, 1), CGFloat(fullH))
+        var cropW = min(max(cropWFloat, 1), CGFloat(fullW))
+        var cropH = min(max(cropHFloat, 1), CGFloat(fullH))
+        
+        if forceSquare {
+            let side = min(cropW, cropH)
+            cropW = side
+            cropH = side
+            TeleLogger.shared.log("ForceSquare enabled: side \(Int(side))px", area: "IMAGE")
+        }
 
         // center in pixels (clamped)
         let cx = cxNorm * CGFloat(fullW)
@@ -193,4 +210,3 @@ enum ImageUtils {
     }
 }
 #endif
-
