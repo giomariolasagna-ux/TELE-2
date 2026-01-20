@@ -74,18 +74,6 @@
             ReferencedContainer = "container:TELE.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "MOONSHOT_API _KEY"
-            value = "sk-tV82xNtdj6kjAtScDgLc2d0IabyVvWKYagF41r1zkX9E6jmz&#10;"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "OPENAI_API_KEY"
-            value = "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"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
