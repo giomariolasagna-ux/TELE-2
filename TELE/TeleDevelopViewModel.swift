@@ -100,10 +100,11 @@ final class TeleDevelopViewModel: ObservableObject {
                 let finalData: Data
                 do {
                     let (squareData, _, _, _, _, _) = try await squareCropTask.value
-                    if let gemini = services.gemini ?? (AppSecrets.geminiApiKey().map { GeminiClient(apiKey: $0) }) {
-                        TeleLogger.shared.log("Using Gemini 2.0 Flash for development", area: "SYSTEM")
-                        // Gemini currently returns JSON; for UX we still surface the mock visual
+                    if let gKey = AppSecrets.geminiApiKey() {
+                        TeleLogger.shared.log("Gemini 2.5 Active (Nano Banana)", area: "SYSTEM")
+                        let gemini = GeminiClient(apiKey: gKey)
                         _ = try await gemini.developImage(prompt: prompt.nbPrompt, imageData: squareData)
+                        // Mock visuale temporaneo per Gemini
                         finalData = try await MockOpenAIImagesService().generateTelephoto(prompt: prompt, cropData: squareData)
                     } else {
                         finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: squareData)

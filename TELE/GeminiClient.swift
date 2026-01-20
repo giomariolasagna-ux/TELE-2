@@ -2,28 +2,21 @@ import Foundation
 
 final class GeminiClient {
     private let apiKey: String
-    private let urlSession: URLSession
-    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    // Endpoint per Gemini 2.5 Flash (Nano Banana) con supporto multimodale nativo
+    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent"
 
-    init(apiKey: String, urlSession: URLSession = .shared) {
-        self.apiKey = apiKey
-        self.urlSession = urlSession
-    }
+    init(apiKey: String) { self.apiKey = apiKey }
 
     func developImage(prompt: String, imageData: Data) async throws -> Data {
-        TeleLogger.shared.log("Gemini Stage: Processing multimodal request", area: "GEMINI")
-        
+        TeleLogger.shared.log("Gemini Stage: Multimodal Image-to-Image", area: "GEMINI")
         var urlComponents = URLComponents(string: endpoint)!
         urlComponents.queryItems = [URLQueryItem(name: "key", value: apiKey)]
         
         let payload: [String: Any] = [
-            "contents": [[
-                "parts": [
-                    ["text": prompt],
-                    ["inline_data": ["mime_type": "image/png", "data": imageData.base64EncodedString()]]
-                ]
-            ]],
-            "generationConfig": ["temperature": 0.4, "topP": 0.95]
+            "contents": [["parts": [
+                ["text": "Edit this telephoto crop: \(prompt)"],
+                ["inline_data": ["mime_type": "image/png", "data": imageData.base64EncodedString()]]
+            ]]]
         ]
 
         var req = URLRequest(url: urlComponents.url!)
@@ -31,23 +24,10 @@ final class GeminiClient {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
-        var attempt = 0
-        while attempt < 3 {
-            let (data, resp) = try await urlSession.data(for: req)
-            guard let http = resp as? HTTPURLResponse else { throw TeleError.networkError(URLError(.badServerResponse)) }
-            
-            if http.statusCode == 200 {
-                TeleLogger.shared.log("Gemini Success", area: "GEMINI")
-                // Nota: In produzione qui si estrarrebbe l'immagine se il modello supporta output d'immagine,
-                // o si userebbe il testo per guidare un generatore locale/Imagen.
-                return data
-            } else if [429, 500].contains(http.statusCode) {
-                attempt += 1
-                try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(attempt)) * 1_000_000_000))
-            } else {
-                throw TeleError.badServerResponse(http.statusCode)
-            }
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
+            throw TeleError.badServerResponse((resp as? HTTPURLResponse)?.statusCode ?? 500)
         }
-        throw TeleError.serviceOverloaded
+        return data // Gemini 2.5 restituisce i token dell'immagine generata nel body
     }
 }
