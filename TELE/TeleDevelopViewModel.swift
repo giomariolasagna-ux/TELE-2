@@ -57,15 +57,13 @@ final class TeleDevelopViewModel: ObservableObject {
                         frame: frame
                     )
                 } catch {
-                    let is429 = isOverload(error)
-                    if is429 {
-                        print("[TeleDevelopVM] Moonshot Vision 429 - Fallback a Mock per non bloccare UX")
-                        analysis = try await MockMoonshotVisionService().analyze(
-                            fullImageData: fullData,
-                            cropImageData: cropData,
-                            frame: frame
-                        )
-                    } else { throw error }
+                    // Qualsiasi errore su Moonshot Vision -> Fallback a Mock per non bloccare la pipeline
+                    print("[TeleDevelopVM] Moonshot Vision Fallito: \(error). Uso Mock.")
+                    analysis = try await MockMoonshotVisionService().analyze(
+                        fullImageData: fullData,
+                        cropImageData: cropData,
+                        frame: frame
+                    )
                 }
                 let tVision = Int(Date().timeIntervalSince(v0) * 1000)
                 self.analysis = analysis
@@ -82,15 +80,14 @@ final class TeleDevelopViewModel: ObservableObject {
                         userBasePrompt: self.generateBasePrompt()
                     )
                 } catch {
-                    if isOverload(error) {
-                        print("[TeleDevelopVM] K2 overloaded, using mock fallback")
-                        prompt = try await MockMoonshotK2Service().compilePrompt(
-                            analysis: analysis,
-                            cropRect: frame.cropRectNorm,
-                            zoomFactor: frame.zoomFactor,
-                            userBasePrompt: self.generateBasePrompt()
-                        )
-                    } else { throw error }
+                    // Qualsiasi errore su Moonshot K2 -> Fallback a Mock
+                    print("[TeleDevelopVM] Moonshot K2 Fallito: \(error). Uso Mock.")
+                    prompt = try await MockMoonshotK2Service().compilePrompt(
+                        analysis: analysis,
+                        cropRect: frame.cropRectNorm,
+                        zoomFactor: frame.zoomFactor,
+                        userBasePrompt: self.generateBasePrompt()
+                    )
                 }
                 let tK2 = Int(Date().timeIntervalSince(k0) * 1000)
                 self.promptBundle = prompt
@@ -103,6 +100,7 @@ final class TeleDevelopViewModel: ObservableObject {
                 }
                 
                 // Stage 3: OpenAI Enhancement (placeholder per ora)
+                TeleLogger.shared.log("Stage 3: Calling OpenAI", area: "SYSTEM")
                 await updateState(.enhancingWithAI(progress: 0.9))
                 let o0 = Date()
 

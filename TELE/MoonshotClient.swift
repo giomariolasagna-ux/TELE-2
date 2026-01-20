@@ -85,20 +85,29 @@ final class MoonshotClient {
     }
 
     func chatCompletions(model: String, messages: [ChatMessage], temperature: Double? = nil, maxTokens: Int? = nil) async throws -> ChatCompletionResponse {
+        TeleLogger.shared.log("Requesting completion for model: \(model)", area: "MOONSHOT")
         let payload: [String: Any] = {
+            let processedMessages = messages.map { msg -> [String: Any] in
+                // Se il contenuto è solo testo, lo appiattiamo a Stringa per massima compatibilità
+                if msg.content.count == 1, case .text(let t) = msg.content.first {
+                    return ["role": msg.role, "content": t]
+                }
+                
+                // Altrimenti usiamo l'array (multimodale)
+                let contentArray = msg.content.map { content -> [String: Any] in
+                    switch content {
+                    case .text(let text):
+                        return ["type": "text", "text": text]
+                    case .image(let url):
+                        return ["type": "image_url", "image_url": ["url": url]]
+                    }
+                }
+                return ["role": msg.role, "content": contentArray]
+            }
+
             var dict: [String: Any] = [
                 "model": model,
-                "messages": messages.map { msg in
-                    let contentArray = msg.content.map { content -> [String: Any] in
-                        switch content {
-                        case .text(let text):
-                            return ["type": "text", "text": text]
-                        case .image(let url):
-                            return ["type": "image_url", "image_url": ["url": url]]
-                        }
-                    }
-                    return ["role": msg.role, "content": contentArray] as [String: Any]
-                }
+                "messages": processedMessages
             ]
             if let temperature { dict["temperature"] = temperature }
             if let maxTokens { dict["max_tokens"] = maxTokens }
@@ -109,6 +118,7 @@ final class MoonshotClient {
         var req = URLRequest(url: url, timeoutInterval: 120) // Aumentato per immagini
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        TeleLogger.shared.log("Auth Header present: \(!apiKey.isEmpty)", area: "MOONSHOT")
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
@@ -121,17 +131,17 @@ final class MoonshotClient {
 
                 if (200..<300).contains(http.statusCode) {
                     do {
+                        TeleLogger.shared.log("HTTP \(http.statusCode) Success", area: "MOONSHOT")
                         return try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
                     } catch {
-                        if let body = String(data: data, encoding: .utf8) {
-                            print("[MoonshotClient] JSON decode failed, body=\(body.prefix(200))")
-                        }
+                        let body = String(data: data, encoding: .utf8) ?? "no body"
+                        TeleLogger.shared.log("JSON Decode failed: \(error). Body: \(body.prefix(300))", area: "MOONSHOT")
                         throw TeleError.decodingFailed
                     }
                 } else if [429, 503].contains(http.statusCode) {
                     let retryAfter = http.value(forHTTPHeaderField: "Retry-After") ?? "1"
                     let waitSeconds = Double(retryAfter) ?? pow(2.0, Double(attempt))
-                    print("[MoonshotClient] HTTP \(http.statusCode) - Rate Limit. Wait \(waitSeconds)s. Attempt \(attempt + 1)/3")
+                    TeleLogger.shared.log("HTTP \(http.statusCode) Rate Limit. Wait \(waitSeconds)s.", area: "MOONSHOT")
                     if attempt == 2 { throw TeleError.serviceOverloaded }
                     let delay = UInt64(waitSeconds * 1_000_000_000)
                     try await Task.sleep(nanoseconds: delay)
@@ -139,7 +149,7 @@ final class MoonshotClient {
                     continue
                 } else {
                     if let body = String(data: data, encoding: .utf8) {
-                        print("[MoonshotClient] HTTP \(http.statusCode) body=\(body)")
+                        TeleLogger.shared.log("HTTP \(http.statusCode) body=\(body)", area: "MOONSHOT")
                     }
                     throw TeleError.badServerResponse(http.statusCode)
                 }

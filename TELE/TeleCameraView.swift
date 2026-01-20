@@ -17,6 +17,13 @@ struct TeleCameraView: View {
                 .ignoresSafeArea()
                 .simultaneousGesture(zoomGesture)
             
+            // Debug Overlay per copia log
+            VStack {
+                DebugLogOverlay()
+                    .padding(.top, 50)
+                Spacer()
+            }
+            
             VStack {
                 Spacer()
                 

@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 protocol MoonshotVisionServiceProtocol {
     func analyze(fullImageData: Data, cropImageData: Data, frame: CapturedFramePair) async throws -> DualAnalysisPack
@@ -13,14 +14,24 @@ final class MoonshotVisionService: MoonshotVisionServiceProtocol {
     }
     
     func analyze(fullImageData: Data, cropImageData: Data, frame: CapturedFramePair) async throws -> DualAnalysisPack {
-        let fullB64 = fullImageData.base64EncodedString()
-        let cropB64 = cropImageData.base64EncodedString()
+        // Ridimensioniamo le immagini per la Vision: 768px sono lo standard industriale.
+        // Inviare 1600px o più causa spesso 413 (Payload Too Large) o 429 inutili.
+        let resizedFull = try? ImageUtils.cropForZoom(fullData: fullImageData, zoomFactor: 1.0, centerNorm: CGPoint(x: 0.5, y: 0.5), outputMaxDimension: 768).0
+        let resizedCrop = try? ImageUtils.cropForZoom(fullData: cropImageData, zoomFactor: 1.0, centerNorm: CGPoint(x: 0.5, y: 0.5), outputMaxDimension: 768).0
+
+        let fullB64 = (resizedFull ?? fullImageData).base64EncodedString()
+        let cropB64 = (resizedCrop ?? cropImageData).base64EncodedString()
         
         // Build messages with images using explicit enum qualification
         let systemMsg = ChatMessage(
             role: "system", 
             content: [
-                ChatMessage.MessageContent.text("Sei un esperto di ottiche teleobiettivo. Analizza le due immagini: la prima è il contesto Full Frame, la seconda è il dettaglio Croppato. Descrivi luci, colori e profondità di campo. Rispondi SOLO in JSON.")
+                ChatMessage.MessageContent.text("""
+Sei un esperto di ottiche teleobiettivo. Analizza le due immagini:
+1. Contesto Full Frame
+2. Dettaglio Croppato
+Descrivi luci, colori e profondità di campo. Rispondi SOLO in JSON matching DualAnalysisPack.
+""")
             ]
         )
         
