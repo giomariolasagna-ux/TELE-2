@@ -57,8 +57,9 @@ final class TeleDevelopViewModel: ObservableObject {
                         frame: frame
                     )
                 } catch {
-                    if isOverload(error) {
-                        print("[TeleDevelopVM] Vision overloaded, using mock fallback")
+                    let is429 = isOverload(error)
+                    if is429 {
+                        print("[TeleDevelopVM] Moonshot Vision 429 - Fallback a Mock per non bloccare UX")
                         analysis = try await MockMoonshotVisionService().analyze(
                             fullImageData: fullData,
                             cropImageData: cropData,

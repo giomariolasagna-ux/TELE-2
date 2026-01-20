@@ -60,7 +60,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     var device: AVCaptureDevice?
     private let photoOutput = AVCapturePhotoOutput()
     private var lastZoomUpdateTime: CFTimeInterval = 0
-    private let zoomUpdateInterval: CFTimeInterval = 1.0 / 30.0
+    private let zoomUpdateInterval: CFTimeInterval = 1.0 / 60.0
     
     struct CaptureOptions {
         var preferHEVC: Bool = true
@@ -182,7 +182,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 try device.lockForConfiguration()
                 #if os(iOS)
                 if device.isSmoothAutoFocusSupported { device.isSmoothAutoFocusEnabled = true }
-                if device.isLowLightBoostSupported { device.automaticallyEnablesLowLightBoostWhenAvailable = true }
+                if device.isLowLightBoostSupported { device.automaticallyEnablesLowLightBoostWhenAvailable = false }
                 if device.isExposureModeSupported(.continuousAutoExposure) {
                     device.exposureMode = .continuousAutoExposure
                 }
@@ -267,9 +267,9 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 let finalZoom = max(minZoom, min(factor, hardMax))
                 let delta = abs(device.videoZoomFactor - finalZoom)
                 if delta > 0.02, device.isRampingVideoZoom {
-                    // already ramping; let it finish
-                } else if delta > 0.25, device.responds(to: #selector(AVCaptureDevice.ramp(toVideoZoomFactor:withRate:))) {
-                    device.ramp(toVideoZoomFactor: finalZoom, withRate: 8.0)
+                    device.ramp(toVideoZoomFactor: finalZoom, withRate: 20.0)
+                } else if delta > 0.1, device.responds(to: #selector(AVCaptureDevice.ramp(toVideoZoomFactor:withRate:))) {
+                    device.ramp(toVideoZoomFactor: finalZoom, withRate: 25.0)
                 } else if delta > 0.005 { device.videoZoomFactor = finalZoom }
                 device.unlockForConfiguration()
                 DispatchQueue.main.async { 

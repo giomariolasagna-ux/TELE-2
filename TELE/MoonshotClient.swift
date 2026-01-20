@@ -129,9 +129,11 @@ final class MoonshotClient {
                         throw TeleError.decodingFailed
                     }
                 } else if [429, 503].contains(http.statusCode) {
-                    print("[MoonshotClient] 429/503 detected. Attempt \(attempt + 1)/3. Retrying...")
+                    let retryAfter = http.value(forHTTPHeaderField: "Retry-After") ?? "1"
+                    let waitSeconds = Double(retryAfter) ?? pow(2.0, Double(attempt))
+                    print("[MoonshotClient] HTTP \(http.statusCode) - Rate Limit. Wait \(waitSeconds)s. Attempt \(attempt + 1)/3")
                     if attempt == 2 { throw TeleError.serviceOverloaded }
-                    let delay = UInt64(pow(2.0, Double(attempt)) * 1_000_000_000) // 1s, 2s, 4s
+                    let delay = UInt64(waitSeconds * 1_000_000_000)
                     try await Task.sleep(nanoseconds: delay)
                     attempt += 1
                     continue
