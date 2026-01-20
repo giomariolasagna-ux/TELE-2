@@ -43,31 +43,30 @@ final class OpenAIImagesClient: OpenAIImagesServiceProtocol {
             body.append("\(value)\r\n".data(using: .utf8)!)
         }
         
-        // OpenAI richiede PNG < 4MB. Implementiamo un ridimensionamento iterativo di sicurezza.
+        // OpenAI richiede PNG < 4MB. Implementiamo un ridimensionamento iterativo.
         var pngData = Data()
-        var currentDimension: CGFloat = 1024
+        var currentDim: CGFloat = 1024
         var success = false
         #if canImport(UIKit)
         if let image = UIImage(data: cropData) {
-            while currentDimension >= 512 {
-                let size = CGSize(width: currentDimension, height: currentDimension)
-                let renderer = UIGraphicsImageRenderer(size: size)
+            let format = UIGraphicsImageRendererFormat.default()
+            format.scale = 1.0
+            format.preferredRange = .standard
+            while currentDim >= 256 {
+                let size = CGSize(width: currentDim, height: currentDim)
+                let renderer = UIGraphicsImageRenderer(size: size, format: format)
                 let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-                if let data = resized.pngData() {
+                if let data = resized.pngData(), data.count < 3_800_000 {
                     pngData = data
-                    if data.count < 3_800_000 { // Margine di sicurezza sotto i 4MB
-                        success = true
-                        break
-                    }
+                    success = true; break
                 }
-                currentDimension -= 256
-                TeleLogger.shared.log("PNG too large (\(pngData.count) bytes), retrying at \(Int(currentDimension))px", area: "OPENAI")
+                currentDim -= 128
             }
         }
         #elseif canImport(AppKit)
         if let image = NSImage(data: cropData) {
-            while currentDimension >= 512 {
-                let newSize = NSSize(width: currentDimension, height: currentDimension)
+            while currentDim >= 512 {
+                let newSize = NSSize(width: currentDim, height: currentDim)
                 let resizedImg = NSImage(size: newSize)
                 resizedImg.lockFocus()
                 image.draw(in: NSRect(origin: .zero, size: newSize), from: .zero, operation: .copy, fraction: 1.0)
@@ -81,18 +80,15 @@ final class OpenAIImagesClient: OpenAIImagesServiceProtocol {
                         break
                     }
                 }
-                currentDimension -= 256
-                TeleLogger.shared.log("PNG too large (\(pngData.count) bytes), retrying at \(Int(currentDimension))px", area: "OPENAI")
+                currentDim -= 256
+                TeleLogger.shared.log("PNG too large (\(pngData.count) bytes), retrying at \(Int(currentDim))px", area: "OPENAI")
             }
         }
         #else
         pngData = cropData
         #endif
         
-        if !success {
-            TeleLogger.shared.log("Failed to compress PNG below 4MB limit.", area: "OPENAI")
-            pngData = cropData // Fallback estremo
-        }
+        if !success { throw URLError(.cannotDecodeRawData) }
         
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"image\"; filename=\"crop.png\"\r\n".data(using: .utf8)!)

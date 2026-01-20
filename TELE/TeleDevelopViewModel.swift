@@ -99,15 +99,21 @@ final class TeleDevelopViewModel: ObservableObject {
 
                 let finalData: Data
                 do {
-                    let (squareData, _, _, _, _, _) = try await squareCropTask.value
                     if let gKey = AppSecrets.geminiApiKey() {
-                        TeleLogger.shared.log("Gemini 2.5 Active (Nano Banana)", area: "SYSTEM")
+                        TeleLogger.shared.log("Using Gemini 2.0 Flash", area: "SYSTEM")
                         let gemini = GeminiClient(apiKey: gKey)
-                        _ = try await gemini.developImage(prompt: prompt.nbPrompt, imageData: squareData)
-                        // Mock visuale temporaneo per Gemini
-                        finalData = try await MockOpenAIImagesService().generateTelephoto(prompt: prompt, cropData: squareData)
+                        let (sq, _, _, _, _, _) = try ImageUtils.cropForZoom(
+                            fullData: fullData,
+                            zoomFactor: frame.zoomFactor,
+                            centerNorm: CGPoint(x: 0.5, y: 0.5),
+                            outputMaxDimension: 1024,
+                            forceSquare: true
+                        )
+                        _ = try await gemini.developImage(prompt: prompt.nbPrompt, imageData: sq)
+                        // Fallback temporaneo per visualizzazione
+                        finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: sq)
                     } else {
-                        finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: squareData)
+                        finalData = try await services.openai.generateTelephoto(prompt: prompt, cropData: cropData)
                     }
                 } catch {
                     if isOverload(error) {

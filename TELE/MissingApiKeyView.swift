@@ -62,6 +62,7 @@ struct DevKeyEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var moonKey: String = ""
     @State private var openAIKey: String = ""
+    @State private var geminiKey: String = ""
     @State private var showSavedAlert: Bool = false
 
     var body: some View {

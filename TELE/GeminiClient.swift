@@ -2,8 +2,7 @@ import Foundation
 
 final class GeminiClient {
     private let apiKey: String
-    // Endpoint per Gemini 2.5 Flash (Nano Banana) con supporto multimodale nativo
-    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent"
+    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
     init(apiKey: String) { self.apiKey = apiKey }
 
