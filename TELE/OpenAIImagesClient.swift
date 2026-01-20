@@ -43,27 +43,56 @@ final class OpenAIImagesClient: OpenAIImagesServiceProtocol {
             body.append("\(value)\r\n".data(using: .utf8)!)
         }
         
-        // OpenAI richiede PNG per l'upload di immagini. 
-        let pngData: Data
+        // OpenAI richiede PNG < 4MB. Implementiamo un ridimensionamento iterativo di sicurezza.
+        var pngData = Data()
+        var currentDimension: CGFloat = 1024
+        var success = false
         #if canImport(UIKit)
         if let image = UIImage(data: cropData) {
-            let size = CGSize(width: 1024, height: 1024)
-            let renderer = UIGraphicsImageRenderer(size: size)
-            let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-            pngData = resized.pngData() ?? cropData
-        } else { pngData = cropData }
+            while currentDimension >= 512 {
+                let size = CGSize(width: currentDimension, height: currentDimension)
+                let renderer = UIGraphicsImageRenderer(size: size)
+                let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+                if let data = resized.pngData() {
+                    pngData = data
+                    if data.count < 3_800_000 { // Margine di sicurezza sotto i 4MB
+                        success = true
+                        break
+                    }
+                }
+                currentDimension -= 256
+                TeleLogger.shared.log("PNG too large (\(pngData.count) bytes), retrying at \(Int(currentDimension))px", area: "OPENAI")
+            }
+        }
         #elseif canImport(AppKit)
-        if let image = NSImage(data: cropData),
-           let tiff = image.tiffRepresentation,
-           let rep = NSBitmapImageRep(data: tiff),
-           let converted = rep.representation(using: .png, properties: [:]) {
-            pngData = converted
-        } else {
-            pngData = cropData
+        if let image = NSImage(data: cropData) {
+            while currentDimension >= 512 {
+                let newSize = NSSize(width: currentDimension, height: currentDimension)
+                let resizedImg = NSImage(size: newSize)
+                resizedImg.lockFocus()
+                image.draw(in: NSRect(origin: .zero, size: newSize), from: .zero, operation: .copy, fraction: 1.0)
+                resizedImg.unlockFocus()
+                if let tiff = resizedImg.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let data = rep.representation(using: .png, properties: [:]) {
+                    pngData = data
+                    if data.count < 3_800_000 {
+                        success = true
+                        break
+                    }
+                }
+                currentDimension -= 256
+                TeleLogger.shared.log("PNG too large (\(pngData.count) bytes), retrying at \(Int(currentDimension))px", area: "OPENAI")
+            }
         }
         #else
         pngData = cropData
         #endif
+        
+        if !success {
+            TeleLogger.shared.log("Failed to compress PNG below 4MB limit.", area: "OPENAI")
+            pngData = cropData // Fallback estremo
+        }
         
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"image\"; filename=\"crop.png\"\r\n".data(using: .utf8)!)
