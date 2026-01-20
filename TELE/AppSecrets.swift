@@ -9,8 +9,8 @@ import Foundation
 enum AppSecrets {
     private static func sanitize(_ s: String) -> String {
         let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Rimuove spazi, newline e punteggiatura accidentale (es. il punto alla fine della chiave)
         var clean = trimmed.filter { !$0.isNewline && !$0.isWhitespace }
+        // Rimuove punteggiatura accidentale comune nei leak/copia-incolla
         if clean.hasSuffix(".") { clean.removeLast() }
         return clean
     }
@@ -71,9 +71,9 @@ enum AppSecrets {
     static func debugDumpSources() {
         #if DEBUG
         func mask(_ s: String?) -> String {
-            guard let s = s, !s.isEmpty else { return "<empty>\"" }
+            guard let s = s, !s.isEmpty else { return "<empty>" }
             let suffix = s.suffix(4)
-            return "••••\(suffix)\""
+            return "••••\(suffix)"
         }
 
         let env = ProcessInfo.processInfo.environment

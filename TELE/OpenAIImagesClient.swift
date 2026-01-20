@@ -43,14 +43,15 @@ final class OpenAIImagesClient: OpenAIImagesServiceProtocol {
             body.append("\(value)\r\n".data(using: .utf8)!)
         }
         
-        // OpenAI richiede PNG per l'upload di immagini
+        // OpenAI richiede PNG per l'upload di immagini. 
         let pngData: Data
         #if canImport(UIKit)
-        if let image = UIImage(data: cropData), let converted = image.pngData() {
-            pngData = converted
-        } else {
-            pngData = cropData
-        }
+        if let image = UIImage(data: cropData) {
+            let size = CGSize(width: 1024, height: 1024)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+            pngData = resized.pngData() ?? cropData
+        } else { pngData = cropData }
         #elseif canImport(AppKit)
         if let image = NSImage(data: cropData),
            let tiff = image.tiffRepresentation,

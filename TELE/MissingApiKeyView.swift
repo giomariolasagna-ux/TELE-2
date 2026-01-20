@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct MissingApiKeyView: View {
     @Binding var needsRefresh: Bool
@@ -64,6 +67,24 @@ struct DevKeyEntryView: View {
     var body: some View {
         NavigationView {
             Form {
+                #if canImport(UIKit)
+                HStack {
+                    SecureField("Moonshot Key", text: $moonKey)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Paste") { moonKey = UIPasteboard.general.string ?? "" }
+                        .buttonStyle(.bordered)
+                }
+                .padding(.horizontal)
+                
+                HStack {
+                    SecureField("OpenAI Key", text: $openAIKey)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Paste") { openAIKey = UIPasteboard.general.string ?? "" }
+                        .buttonStyle(.bordered)
+                }
+                .padding(.horizontal)
+                #endif
+
                 Section(header: Text("Moonshot API Key")) {
                     VStack(alignment: .leading, spacing: 8) {
                         TextEditor(text: $moonKey)
@@ -145,4 +166,3 @@ struct DevKeyEntryView: View {
 extension Notification.Name {
     static let teleShowKeyHelp = Notification.Name("tele.showKeyHelp")
 }
-

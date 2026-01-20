@@ -2,13 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>NSCameraUsageDescription</key>
-    <string>TELE ha bisogno della fotocamera per mostrarti il mirino e scattare foto.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>TELE ha bisogno del microfono per i video.</string>
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>remote-notification</string>
-    </array>
+	<key>NSCameraUsageDescription</key>
+	<string>TELE ha bisogno della fotocamera per mostrarti il mirino e scattare foto.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>TELE ha bisogno del microfono per i video.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>TELE ha bisogno di salvare le foto sviluppate nella tua libreria.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
