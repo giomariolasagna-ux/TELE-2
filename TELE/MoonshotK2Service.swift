@@ -22,7 +22,8 @@ final class MoonshotK2Service: MoonshotK2ServiceProtocol {
                 4. Eviti smoothing artificiale su aree lisce (cielo)
                 5. Validi coerenza tra analisi full e crop
                 
-                Rispondi SOLO con JSON valido matching PromptBundle.
+                Rispondi SOLO con JSON valido usando snake_case per le chiavi: 
+                "nb_prompt", "nb_negative", "render_notes".
                 """
         )
         
@@ -47,7 +48,9 @@ final class MoonshotK2Service: MoonshotK2ServiceProtocol {
         }
         
         do {
-            return try JSONDecoder().decode(PromptBundle.self, from: jsonData)
+            var bundle = try JSONDecoder().decode(PromptBundle.self, from: jsonData)
+            bundle.captureId = analysis.captureId // Iniettiamo l'ID originale per sicurezza
+            return bundle
         } catch {
             print("[K2Service] Decode fallito, content=\(content.prefix(200))")
             throw error

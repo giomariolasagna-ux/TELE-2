@@ -14,10 +14,9 @@ final class MoonshotVisionService: MoonshotVisionServiceProtocol {
     }
     
     func analyze(fullImageData: Data, cropImageData: Data, frame: CapturedFramePair) async throws -> DualAnalysisPack {
-        // Ridimensioniamo le immagini per la Vision: 768px sono lo standard industriale.
-        // Inviare 1600px o più causa spesso 413 (Payload Too Large) o 429 inutili.
-        let resizedFull = try? ImageUtils.cropForZoom(fullData: fullImageData, zoomFactor: 1.0, centerNorm: CGPoint(x: 0.5, y: 0.5), outputMaxDimension: 768).0
-        let resizedCrop = try? ImageUtils.cropForZoom(fullData: cropImageData, zoomFactor: 1.0, centerNorm: CGPoint(x: 0.5, y: 0.5), outputMaxDimension: 768).0
+        // Ottimizzazione estrema: 512px e qualità 0.5 per velocità massima di upload
+        let resizedFull = try? ImageUtils.cropForZoom(fullData: fullImageData, zoomFactor: 1.0, centerNorm: CGPoint(x: 0.5, y: 0.5), outputMaxDimension: 512, outputJPEGQuality: 0.5).0
+        let resizedCrop = try? ImageUtils.cropForZoom(fullData: cropImageData, zoomFactor: 1.0, centerNorm: CGPoint(x: 0.5, y: 0.5), outputMaxDimension: 512, outputJPEGQuality: 0.5).0
 
         let fullB64 = (resizedFull ?? fullImageData).base64EncodedString()
         let cropB64 = (resizedCrop ?? cropImageData).base64EncodedString()

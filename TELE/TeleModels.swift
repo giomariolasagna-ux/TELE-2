@@ -44,9 +44,15 @@ struct DualAnalysisPack: Codable, Equatable {
 }
 
 struct PromptBundle: Codable, Equatable {
-    var captureId: String
+    var captureId: String? // Rendiamo opzionale per evitare crash in decodifica
     var nbPrompt: String
     var nbNegative: String
     var renderNotes: String?
-}
 
+    enum CodingKeys: String, CodingKey {
+        case captureId = "capture_id"
+        case nbPrompt = "nb_prompt"
+        case nbNegative = "nb_negative"
+        case renderNotes = "render_notes"
+    }
+}

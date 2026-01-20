@@ -45,6 +45,7 @@ final class TeleDevelopViewModel: ObservableObject {
         
         let task = Task {
             let tStart = Date()
+            TeleLogger.shared.log("Pipeline Started", area: "SYSTEM")
             
             // Task parallelo per preparare il crop quadrato per OpenAI mentre Moonshot lavora
             let squareCropTask = Task {
