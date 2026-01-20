@@ -56,8 +56,12 @@ enum AppSecrets {
         value(for: "OPENAI_API_KEY")
     }
 
+    static func geminiApiKey() -> String? {
+        value(for: "GEMINI_API_KEY")
+    }
+
     static func hasAllKeys() -> Bool {
-        !(moonshotApiKey() ?? "").isEmpty && !(openAIApiKey() ?? "").isEmpty
+        !(moonshotApiKey() ?? "").isEmpty && (!(openAIApiKey() ?? "").isEmpty || !(geminiApiKey() ?? "").isEmpty)
     }
 
     static func missingKeys() -> [String] {
