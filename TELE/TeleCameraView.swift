@@ -59,13 +59,34 @@ struct TeleCameraView: View {
         }
         .sheet(isPresented: $showResult) {
             VStack(spacing: 16) {
-                Text("Result")
-                    .font(.title)
-                    .bold()
                 if case let .completed(result) = developVM.state {
-                    Text("Development completed")
+                    #if canImport(UIKit)
+                    Image(uiImage: result)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .cornerRadius(12)
+                        .shadow(radius: 10)
+                        .padding()
+                    #elseif canImport(AppKit)
+                    Image(nsImage: result)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .cornerRadius(12)
+                        .shadow(radius: 10)
+                        .padding()
+                    #endif
+                    
+                    Text("AI Tele-Development Complete")
                         .font(.headline)
-                    // You can render result here when ready
+                    
+                    Button {
+                        developVM.saveToGallery(image: result)
+                    } label: {
+                        Label("Save to Photos", systemImage: "square.and.arrow.down")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.horizontal)
                 } else if developVM.state.isProcessing {
                     ProgressView()
                 } else {

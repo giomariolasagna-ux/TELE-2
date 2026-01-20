@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import Combine
+#if canImport(Photos)
+import Photos
+#endif
 
 #if canImport(UIKit)
 import UIKit
@@ -156,6 +159,24 @@ final class TeleDevelopViewModel: ObservableObject {
     
     private func updateState(_ newState: ProcessingState) async {
         await MainActor.run { self.state = newState }
+    }
+    
+    func saveToGallery(image: PlatformImage) {
+        #if canImport(Photos)
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                TeleLogger.shared.log("Photo Library access denied", area: "SYSTEM")
+                return
+            }
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            } completionHandler: { success, error in
+                TeleLogger.shared.log(success ? "Saved to Gallery" : "Save Failed: \(error?.localizedDescription ?? "")", area: "SYSTEM")
+            }
+        }
+        #else
+        TeleLogger.shared.log("Photo save not supported on this platform", area: "SYSTEM")
+        #endif
     }
     
     private func validateAnalysisConsistency(analysis: DualAnalysisPack) -> Bool {
